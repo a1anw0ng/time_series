@@ -1,0 +1,143 @@
+Timestamps in timezone:
+
+UTC -> EST (UTC-5) -> PST (UTC-8)
+
+ex:
+	UTC 21:53:00  Monday 2/24/2025   (8 hours ahead of San Jose)
+	
+	UTC -5  EST  Eastern Standard Time  (3 hours ahead of San Jose)
+		4:53:00 PM (16:53:00) Monday 2/24/2025
+
+	UTC -8  PST  Pacific Standard Time
+		1:53:00 PM (13:53:00) Monday 2/24/2025
+
+
+
+
+
+
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
+# telegraf service
+sudo systemctl status telegraf
+sudo systemctl start telegraf
+sudo systemctl stop telegraf
+
+*** from  /etc/telegraf/telegraf.conf
+
+# Check input data
+influx query 'from(bucket:"from_telegref") |> range(start: -15s)' 
+
+influx query 'from(bucket:"from_telegref") |> range(start: -15s)' > guo111.txt
+
+# telegraf.conf:
+
+	guo@guo7:~/telegraf$ cat telegraf.conf 
+	# Global configuration
+	[agent]
+	  interval = "10s"  # Collect data every 10 seconds
+	  flush_interval = "10s"  # Send data to InfluxDB every 10 seconds
+
+	# Input plugins (collect system metrics)
+	[[inputs.cpu]]
+	  percpu = true
+	  totalcpu = true
+	  collect_cpu_time = false
+	  report_active = false
+
+	[[inputs.mem]]
+	[[inputs.disk]]
+	[[inputs.diskio]]
+	[[inputs.net]]
+
+	# Output plugin (send data to InfluxDB v2)
+	[[outputs.influxdb_v2]]
+	  urls = ["http://localhost:8086"]  # InfluxDB URL
+	  token = "Ht7Q8Ph4ms3C78BEsZyTNIcrYOw39n-bgXMvxamRqy98MpWJo-9TQPQNKPcYaTR1XSat1k6pLEs7rLlWlsCrHQ=="    # Token generated in InfluxDB
+	  organization = "guowork"        # Organization name
+	  bucket = "from_telegref"           # Bucket name
+
+
+
+
+
+
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
+# influxdb service
+sudo systemctl status influxdb
+sudo systemctl start influxdb
+sudo systemctl stop influxdb
+
+# web site:
+http://localhost:8086/signin
+
+Username = guo
+Password = Welc0me12345!
+Initial Organization Name = guowork
+Initial Bucket Name = my_bucket
+
+
+
+# To list config
+influx config list
+
+# To list bucket
+influx bucket list
+
+
+# To query bucket:
+influx query 'from(bucket:"from_telegref") |> range(start: -7d)'
+influx query 'from(bucket:"my_bucket") |> range(start: -1h)'
+
+influx query 'from(bucket:"from_telegref") |> range(start: -1h)'
+influx query 'from(bucket:"from_telegref") |> range(start: -15s)' 
+
+influx query 'from(bucket:"from_telegref") |> range(start: -15s)' > guo111.txt
+
+# To delete all data in a bucket:
+
+# For PST time
+influx delete --bucket from_telegref --org guowork --start 1970-01-01T00:00:00Z --stop $(date +"%Y-%m-%dT%H:%M:%SZ")
+
+# For UTC time:
+influx delete \
+  --bucket from_telegref \
+  --org guowork \
+  --start 1970-01-01T00:00:00Z \
+  --stop "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+  
+  
+# To check the time range of the data in the bucket:
+influx query 'from(bucket: "from_telegref") |> range(start: 0) |> first()'  	# earliest timestamp
+influx query 'from(bucket: "from_telegref") |> range(start: 0) |> last()'	# latest timestamp
+
+
+# To check the Retention Policy or Bucket Settings
+influx bucket list --org guowork
+
+	guo@guo7:~$ influx bucket list --org guowork
+	ID			Name		Retention	Shard group duration	Organization ID		Schema Type
+	382a258098ee7f92	_monitoring	168h0m0s	24h0m0s			f26ea4978662cf7d	implicit
+	e6322b3c15244250	_tasks		72h0m0s		24h0m0s			f26ea4978662cf7d	implicit
+	e06f9610f248b04e	from_telegref	168h0m0s	24h0m0s			f26ea4978662cf7d	implicit
+	34949809da4a02f3	my_bucket	168h0m0s	24h0m0s			f26ea4978662cf7d	implicit
+	d24ec4e0c6659021	sensor_data	infinite	168h0m0s		f26ea4978662cf7d	implicit
+	
+# To drop the bucket:
+influx bucket delete --name from_telegref --org guowork
+
+# To recreate the bucket:
+influx bucket create --name from_telegref --org guowork
+
+
+# To export data from bucket into a xxx.csv
+influx export --bucket from_telegref --start 2025-01-01T00:00:00Z --stop 2025-02-23T00:00:00Z --file ~/export.csv	
+
+# To insert data - method #1
+influx write -b my_bucket -o guowork -p ns 'temperature,location=room1 value=25.3'
+
+
+# To create a token for API-Calls
+guo@guo7:~$ influx auth create --org guowork --all-access
+
